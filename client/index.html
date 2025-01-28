@@ -1,0 +1,916 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ESP32-CAM Astrophotography Control</title>
+    <style>
+        :root {
+            --bg-dark: #1a1a1a;
+            --text-light: #e0e0e0;
+            --accent-blue: #3498db;
+            --accent-green: #4CAF50;
+            --accent-red: #f44336;
+            --panel-bg: #2a2a2a;
+            --border-color: #404040;
+            --hover-color: #3a3a3a;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-light);
+            font-family: system-ui, -apple-system, sans-serif;
+            margin: 0;
+            padding: 20px;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+        }
+
+        .panel {
+            background-color: var(--panel-bg);
+            border-radius: 8px;
+            padding: 20px;
+            border: 1px solid var(--border-color);
+        }
+
+        .full-width {
+            grid-column: 1 / -1;
+        }
+
+        h2 {
+            margin-top: 0;
+            margin-bottom: 20px;
+            color: var(--accent-blue);
+            font-size: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        h2 i {
+            font-size: 1.2em;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+        }
+
+        input[type="number"],
+        input[type="text"],
+        select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            background-color: var(--bg-dark);
+            color: var(--text-light);
+            font-size: 14px;
+            transition: border-color 0.2s;
+        }
+
+        input:focus,
+        select:focus {
+            border-color: var(--accent-blue);
+            outline: none;
+        }
+
+        button {
+            background-color: var(--accent-blue);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: opacity 0.2s, background-color 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        button:hover {
+            opacity: 0.9;
+        }
+
+        button.danger {
+            background-color: var(--accent-red);
+        }
+
+        button.success {
+            background-color: var(--accent-green);
+        }
+
+        .viewport-container {
+            border: 1px solid var(--border-color);
+        transition: border-color 0.3s;
+        }
+
+        .viewport-container:hover {
+            border-color: var(--accent-blue);
+        }
+
+	.hidden {
+	    display: none;
+	}
+
+
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 20px;
+            border-radius: 4px;
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        .notification.success {
+            background-color: var(--accent-green);
+            color: white;
+        }
+
+        .notification.error {
+            background-color: var(--accent-red);
+            color: white;
+        }
+
+        .progress-container {
+            margin-top: 15px;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background-color: var(--bg-dark);
+            border-radius: 10px;
+            overflow: hidden;
+            margin-top: 10px;
+        }
+
+        .progress-bar-fill {
+            height: 100%;
+            background-color: var(--accent-blue);
+            transition: width 0.3s ease;
+        }
+
+        .queue-item {
+            padding: 12px;
+            margin: 8px 0;
+            background-color: var(--bg-dark);
+            border-radius: 4px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: background-color 0.2s;
+        }
+
+        .queue-item:hover {
+            background-color: var(--hover-color);
+        }
+
+        .queue-item-info {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .queue-item-title {
+            font-weight: 500;
+        }
+
+        .queue-item-details {
+            font-size: 0.9em;
+            opacity: 0.8;
+        }
+
+        .directory-browser {
+            max-height: 400px;
+            overflow-y: auto;
+            padding: 10px;
+            background-color: var(--bg-dark);
+            border-radius: 4px;
+        }
+
+        .directory-item {
+            padding: 8px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            border-radius: 4px;
+            transition: background-color 0.2s;
+        }
+
+        .directory-item:hover {
+            background-color: var(--hover-color);
+        }
+
+        .directory-item.directory i {
+            color: var(--accent-blue);
+        }
+
+        .directory-item.file i {
+            color: var(--text-light);
+        }
+
+        .stats-panel {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+            padding: 15px;
+            background-color: var(--bg-dark);
+            border-radius: 4px;
+        }
+
+        .stat-item {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .stat-label {
+            font-size: 0.9em;
+            opacity: 0.8;
+        }
+
+        .stat-value {
+            font-size: 1.2em;
+            font-weight: 500;
+        }
+
+        .status-badge {
+            padding: 5px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .status-badge.running {
+            background-color: var(--accent-green);
+            color: white;
+        }
+
+        .status-badge.stopped {
+            background-color: var(--accent-red);
+            color: white;
+        }
+
+        .directory-path {
+            font-family: monospace;
+            padding: 8px;
+            background-color: var(--bg-dark);
+            border-radius: 4px;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            overflow-x: auto;
+            white-space: nowrap;
+        }
+
+        .cam-adv-setting-collapsible {
+            background-color: var(--bg-dark);
+            color: #e0e0e0;
+            cursor: pointer;
+            padding-left: 3px;
+            width: 100%;
+            border: none;
+            text-align: left;
+            outline: none;
+            font-size: 14px;
+        }
+
+        /* Add a background color to the button if it is clicked on (add the .active class with JS), and when you move the mouse over it (hover) */
+        /*.active, */
+        .cam-adv-setting-collapsible:hover {
+            background-color: #ccc;
+        }
+
+        /* Style the collapsible content. Note: hidden by default */
+        .cam-adv-setting-content {
+            display: none;
+            overflow: hidden;
+            background-color: #2a2a2a;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+ 
+      <!-- CAMERA DISPLAY -->
+      <div class="panel full-width">
+          <h2>Camera Viewport</h2>
+
+          <div class="viewport-container" style="width: 100%; background-color: var(--bg-dark); border-radius: 8px; overflow: hidden;">
+              <div style="position: relative; width: 100%; padding-top: 56.25%;">
+                  <!-- placeholder -->
+                  <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; display: flex; flex-direction: column; justify-content: center; align-items: center; background-color: var(--bg-dark);">
+		      
+		      <!-- status text -->
+                      <div id="status-text" style="text-align: center;">
+                          <div style="font-size: 1.2em; margin-bottom: 8px;" id="no-signal">No Signal</div>
+                          <div style="font-size: 0.9em; opacity: 0.7;" id="waiting-for-camera-connection">Waiting for camera connection...</div>
+                      </div>
+
+		      <!-- Image -->
+		      <figure id="image-container" class="hidden" style="margin: 0; text-align: center;">
+			<img id="stream" src="" alt="Camera Stream" style="max-width: 100%; max-height: 100%;" crossorigin>
+			<figcaption style="font-size: 0.9em; opacity: 0.7;">Live Camera Stream</figcaption>
+		      </figure>
+
+                  </div>
+
+                  <!-- STATS OVERLAY -->
+                  <div style="position: absolute; bottom: 16px; left: 16px; right: 16px; background: rgba(0,0,0,0.6); padding: 8px; border-radius: 4px;">
+                      <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; font-size: 0.9em;">
+                          <div>
+                              <span style="opacity: 0.7;">Exposure:</span> <span id="img-stat-exposure">1/100s</span><!-- not sure how to sub value here -->
+                          </div>
+                          <div>
+                              <span style="opacity: 0.7;">ISO:</span> <span id="img-stat-iso">400</span>
+                          </div>
+                          <div>
+                              <span style="opacity: 0.7;">Gain:</span> <span id="img-stat-gain">1.0x</span>
+                          </div>
+                          <div>
+                              <span style="opacity: 0.7;">Resolution:</span> <span id="img-stat-resolution">1600x1200</span>
+                          </div>
+                      </div>
+                  </div>
+              </div>
+          </div>
+
+          <!--buttons -->
+          <div style="margin-top: 16px; display: flex; gap: 8px;">
+              <button class="success" id="capture">
+                  📸 Capture
+              </button>
+              <button>
+                  ⚙️ Settings <!-- scrolls down to settings? -->
+              </button>
+          </div>
+      </div>
+        <!-- CAMERA SETTINGS; ADD MORE -->
+        <div class="panel">
+            <h2>Camera Settings</h2>
+            <form id="settingsForm">
+                <div class="form-group">
+                    <label for="exposure">Exposure (ms)</label>
+                    <input type="number" id="exposure" min="0" step="10" value="40">
+                </div>
+                <div class="form-group">
+                    <label for="quality">Quality</label>
+                    <input type="number" id="quality" min="1" max="63" step="1" value="1">
+                </div>
+                <div class="form-group">
+                    <label for="gain">Gain</label>
+                    <input type="number" id="gain" min="1" max="31" value="1">
+                </div>
+                <div class="form-group">
+                    <label for="wb">White Balance</label>
+                    <select id="wb">
+                        <option value="Setting 1">Setting 1</option>
+                        <option value="Setting 2">Setting 2</option>
+                    </select>
+                </div>
+                <button type="button" class="cam-adv-setting-collapsible">Advanced Settings</button>
+                <div class="cam-adv-setting-content">
+                    <p>Lorem ipsum...</p>
+                </div>
+                <button type="submit" id="apply-settings-button">Apply Settings</button>
+            </form>
+        </div>
+
+        <!-- JOB QUEUE SETUP -->
+        <div class="panel">
+            <h2>Queue Setup</h2>
+            <form id="queueForm">
+                <div class="form-group">
+                    <label for="frameType">Frame Type</label>
+                    <select id="frameType">
+                        <option value="bias">Bias Frames</option>
+                        <option value="dark">Dark Frames</option>
+                        <option value="flat">Flat Frames</option>
+                        <option value="targ">Target Frames</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="frameCount">Number of Frames</label>
+                    <input type="number" id="frameCount" min="1" value="10">
+                </div>
+                <div class="form-group">
+                    <label for="frameDelay">Delay Between Frames (s)</label>
+                    <input type="number" id="frameDelay" min="0" step="1" value="5">
+                </div>
+                <div class="form-group">
+                    <label for="savePath">Save Directory</label>
+                    <div style="display: flex; gap: 10px;">
+                        <input type="text" id="savePath" value="~/ESP_Photos">
+                        <button type="button" id="directoryPicker" class="success">
+                            Browse...
+                        </button>
+                  </div>
+                </div>
+                <button type="submit" id="addToQueue">Add to Queue</button>
+            </form>
+        </div>
+
+        <!-- QUEUE STATUS -->
+        <div class="panel full-width">
+            <h2>Queue Status</h2>
+            <!-- <div id="queueStatus" class="status-badge stopped">Queue is stopped</div> -->
+           <!-- IDEALLY THIS CHANGES DYNAMICALLY --> 
+          <div id="queueStatus" class="status-badge running">Queue is running...</div>
+
+            
+            <div class="progress-container">
+                <div class="status">
+                    <strong>Current Job:</strong> <span id="currentJobStatus">10 Bias Frames</span>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-bar-fill" style="width: 45%"></div>
+                </div>
+            </div>
+
+            <div id="queueStats" class="stats-panel">
+                <div class="stat-item">
+                    <div class="stat-label">Queued Jobs</div>
+                    <div class="stat-value">2</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">Time Remaining</div>
+                    <div class="stat-value">12:34:56</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">Completed Frames</div>
+                    <div class="stat-value">4</div>
+                </div>
+            </div>
+
+            <div id="queueList" style="margin-top: 20px;">
+                <!-- QUEUE ITEMS HERE -->
+            </div>
+
+            <div style="margin-top: 20px; display: flex; gap: 10px;">
+                <button id="pauseQueue">⏸️ Pause Queue</button>
+                <!-- would changing this button interactively be too much to ask... -->
+                <button id="resumeQueue" style="display: none;">▶️ Resume Queue</button>
+                <button id="cancelQueue" class="danger">⏹️ Cancel Queue</button>
+            </div>
+        </div>
+
+    <!-- Notification Pop Ups? -->
+    <div id="notification" class="notification" style="display: none;"></div>
+
+    <!-- Scripts -->
+    <script>
+document.addEventListener('DOMContentLoaded', function (event) {
+	// document.location.origin
+	var baseHost = 'http://192.168.4.1'
+	var streamUrl = baseHost + ':81'
+	const statusText = document.getElementById('status-text');
+	const imageContainer = document.getElementById('image-container');
+	const streamImage = document.getElementById('stream');
+
+	function showImage() {
+		imageUrl = `${baseHost}/capture?_cb=${Date.now()}`
+		// Hide the status text
+		statusText.classList.add('hidden');
+		// Show the image container
+		imageContainer.classList.remove('hidden');
+		// Set the image source
+		streamImage.src = imageUrl;
+	}
+
+	function showStatus() {
+		// Hide the image container
+		imageContainer.classList.add('hidden');
+		// Show the status text
+		statusText.classList.remove('hidden');
+	}
+
+	function fetchUrl(url, cb){
+	    fetch(url)
+	      .then(function (response) {
+		if (response.status !== 200) {
+		  cb(response.status, response.statusText);
+		} else {
+		  response.text().then(function(data){
+		    cb(200, data);
+		  }).catch(function(err) {
+		    cb(-1, err);
+		  });
+		}
+	      })
+	      .catch(function(err) {
+		cb(-1, err);
+	      });
+	}
+	
+	/******************************
+	 *                            *
+	 *       Update Exposure      *
+	 *                            *
+	 ******************************/
+	function updateExposure() {
+		let value = parseInt(document.getElementById('exposure').value);
+
+		const query = `${baseHost}/control?var=aec_value&val=${value}`
+
+		fetch(query)
+		      .then(response => {
+			console.log(`request to ${query} finished, status: ${response.status}`)
+		      })
+	}
+
+	/******************************
+	 *                            *
+	 *       Update Quality       *
+	 *                            *
+	 ******************************/
+	function updateQuality() {
+		let value = parseInt(document.getElementById('quality').value);
+
+		const query = `${baseHost}/control?var=quality&val=${value}`
+
+		fetch(query)
+		      .then(response => {
+			console.log(`request to ${query} finished, status: ${response.status}`)
+		      })
+	}
+
+	/******************************
+	 *                            *
+	 *       Update Gain          *
+	 *                            *
+	 ******************************/
+	function updateGain() {
+		let value = parseInt(document.getElementById('gain').value);
+
+		const query = `${baseHost}/control?var=agc_gain&val=${value}`
+
+		fetch(query)
+		      .then(response => {
+			console.log(`request to ${query} finished, status: ${response.status}`)
+		      })
+	}
+
+    function onBiasMode() {
+
+    }
+	
+
+	// starting with default settings, described in comments
+	function onStart() {
+		updateSettings();
+
+		// Turning auto white balance off
+		fetch(`${baseHost}/control?var=awb&val=0`)
+		      .then(response => {
+			console.log(`inital request to awb (off) finished, status: ${response.status}`)
+		      })
+
+		// Setting the resolution to HD (1280x720)
+		fetch(`${baseHost}/control?var=framesize&val=11`)
+		      .then(response => {
+			console.log(`inital request to framesize (HD) finished, status: ${response.status}`)
+		      })
+
+		// turning the auto white balance gain off
+		fetch(`${baseHost}/control?var=awb_gain&val=0`)
+		      .then(response => {
+			console.log(`inital request to awb gain(off) finished, status: ${response.status}`)
+		      })
+
+		// turning off AEC SENSOR
+		fetch(`${baseHost}/control?var=aec&val=0`)
+		      .then(response => {
+			console.log(`inital request to aec sensor (off) finished, status: ${response.status}`)
+		      })
+
+		// turning off AEC DSP
+		fetch(`${baseHost}/control?var=aec2&val=0`)
+		      .then(response => {
+			console.log(`inital request to aec dsp (off) finished, status: ${response.status}`)
+		      })
+
+		// turning off auto gain ceiling
+		fetch(`${baseHost}/control?var=agc&val=0`)
+		      .then(response => {
+			console.log(`inital request to agc (off) finished, status: ${response.status}`)
+		      })
+
+		// turning off BPC
+		fetch(`${baseHost}/control?var=bpc&val=0`)
+		      .then(response => {
+			console.log(`inital request to bpc (off) finished, status: ${response.status}`)
+		      })
+
+		// turning off wpc
+		fetch(`${baseHost}/control?var=wpc&val=0`)
+		      .then(response => {
+			console.log(`inital request to wpc (off) finished, status: ${response.status}`)
+		      })
+		// turning off raw gma
+		fetch(`${baseHost}/control?var=raw_gma&val=0`)
+		      .then(response => {
+			console.log(`inital request to raw_gma (off) finished, status: ${response.status}`)
+		      })
+		// turning off lens correction
+		fetch(`${baseHost}/control?var=lenc&val=0`)
+		      .then(response => {
+			console.log(`inital request to lenc (off) finished, status: ${response.status}`)
+		      })
+		// turning off h-mirror
+		fetch(`${baseHost}/control?var=hmirror&val=0`)
+		      .then(response => {
+			console.log(`inital request to hmirror (off) finished, status: ${response.status}`)
+		      })
+		// turning off v-flip
+		fetch(`${baseHost}/control?var=vflip&val=0`)
+		      .then(response => {
+			console.log(`inital request to vflip (off) finished, status: ${response.status}`)
+		      })
+		// turning off dcw
+		fetch(`${baseHost}/control?var=dcw&val=0`)
+		      .then(response => {
+			console.log(`inital request to dcw (off) finished, status: ${response.status}`)
+		      })
+		// turning off color bar
+		fetch(`${baseHost}/control?var=colorbar&val=0`)
+		      .then(response => {
+			console.log(`inital request to colorbar (off) finished, status: ${response.status}`)
+		      })
+		/*
+		// turning off face detection
+		fetch(`${baseHost}/control?var=face_detect&val=0`)
+		      .then(response => {
+			console.log(`inital request to face_detect (off) finished, status: ${response.status}`)
+		      })
+		// turning off face recognition
+		fetch(`${baseHost}/control?var=face_recognize&val=0`)
+		      .then(response => {
+			console.log(`inital request to face_recognize (off) finished, status: ${response.status}`)
+		      })
+		*/
+
+	}
+
+
+
+	function updateSettings() {
+		updateExposure();
+		updateQuality();
+		updateGain();
+	}
+
+	const settingsForm = document.getElementById('settingsForm');
+
+	settingsForm.onsubmit = (event) => {
+		event.preventDefault(); // Prevent the page reload
+		updateSettings(); // Your function to apply settings
+		console.log("Settings applied");
+	};
+
+
+	const captureButton = document.getElementById('capture')
+	captureButton.onclick = () => {
+		showImage();
+	}
+
+
+    // Queue to manage frame captures
+    let captureQueue = [];
+let isQueueProcessing = false;
+
+// Connect the directory picker to open the picker and set the savePath
+async function selectSaveDirectory() {
+    try {
+        // Open the directory picker
+        directoryHandle = await window.showDirectoryPicker();
+
+        // Display the selected path in the savePath input
+
+        document.getElementById("savePath").value = directoryHandle.value;
+    } catch (error) {
+        console.error("Directory selection canceled or failed:", error);
+    }
+}
+
+// Add to Queue Function
+function addToQueue() {
+    const frameTypeEnum = document.getElementById("frameType").value;
+    const numFrames = parseInt(document.getElementById("frameCount").value, 10);
+    const delay = parseInt(document.getElementById("frameDelay").value, 10) * 1000; // Convert seconds to milliseconds
+    let saveTo = document.getElementById("savePath").value;
+    if (isNaN(numFrames) || isNaN(delay) || !frameTypeEnum || !saveTo) {
+        alert("Please fill all fields with valid values.");
+        return;
+    }
+    const settingsMap = {
+        bias: 0,  
+        dark: 1,
+        flat: 2,
+        targ: 3,
+    };
+
+    if (!(frameTypeEnum in settingsMap)) {
+        console.error(`Unknown frame type: ${frameTypeEnum}`);
+        return;
+    }
+
+    const frameType = settingsMap[frameTypeEnum];
+    if (frameType == 0) {
+        saveTo += "/bias/";
+    }
+    else if (frameType == 1) {
+        saveTo += "/dark/";
+    }
+    else if (frameType == 2) {
+        saveTo += "/flat/";
+    }
+    else if (frameType == 3) {
+        saveTo += "/targ/";
+    }
+
+    captureQueue.push({ frameTypeEnum, frameType, numFrames, delay, saveTo });
+    updateQueueStatus(`Queued Job: ${frameTypeEnum} (${numFrames} frames)`);
+    processQueue();
+}
+
+// Process the Queue
+async function processQueue() {
+    if (isQueueProcessing || captureQueue.length === 0) return;
+    isQueueProcessing = true;
+
+    while (captureQueue.length > 0) {
+        const task = captureQueue.shift();
+        for (let i = 0; i < task.numFrames; i++) {
+            updateQueueStatus(`Processing ${task.frameTypeEnum}: Frame ${i + 1} of ${task.numFrames}`);
+            await applyFrameSettings(task.frameType);
+            await delay(task.delay);
+            await captureAndSaveImage(task, i + 1);
+        }
+    }
+
+    updateQueueStatus("Queue Complete");
+    isQueueProcessing = false;
+}
+
+// Apply Frame Settings
+async function applyFrameSettings(frameType) {
+    
+    //const query = `/control?var=framesize&val=${framesizeValue}`;
+    //await fetch(query).catch(() => console.error("Failed to apply frame settings."));
+}
+
+// Capture Image and Save
+async function captureAndSaveImage(task, frameNumber) {
+    try {
+        const captureUrl = `${baseHost}/capture?_cb=${Date.now()}`;
+        const response = await fetch(captureUrl);
+
+        if (!response.ok) throw new Error("Capture failed.");
+
+        const blob = await response.blob();
+        const timestamp = new Date().toISOString().replace(/:/g, "-");
+        const fileName = `${task.saveTo}${task.frameType}_${timestamp}_frame${frameNumber}.bmp`;
+
+        await saveFile(blob, fileName);
+
+        console.log(`Captured frame saved as: ${fileName}`);
+        // Handle saving to SD card or local directory
+    } catch (error) {
+        console.error(`Error capturing frame ${frameNumber}: ${error.message}`);
+    }
+}
+
+/*async function saveFile(rgb565Data, task, fileName) {
+    try {
+        // Use showSaveFilePicker with a predefined file name
+        const fileHandle = await window.showSaveFilePicker({
+            id: task.frameType,
+            suggestedName: fileName,
+            startIn: task.saveTo,
+            types: [
+                {
+                    description: 'Raw Image Files',
+                    accept: { 'application/octet-stream': ['.rgb565'] }
+                }
+            ]
+        });
+
+        // Create a writable stream
+        const writableStream = await fileHandle.createWritable();
+
+        // Write the RGB565 data to the file
+        await writableStream.write(rgb565Data);
+        await writableStream.close();
+
+        console.log(`File successfully saved as: ${fileName}`);
+    } catch (error) {
+        console.error(`Failed to save file: ${error.message}`);
+    }
+}*/
+    function saveFile(rgb565Data, fileName) {
+        try {
+            // Create a Blob from the RGB565 data
+            const blob = new Blob([rgb565Data], { type: 'application/octet-stream' });
+
+            // Create a temporary anchor element
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = fileName;
+
+            // Programmatically trigger a click on the anchor element
+            document.body.appendChild(a);
+            a.click();
+
+            // Clean up the DOM and revoke the Blob URL
+            document.body.removeChild(a);
+            URL.revokeObjectURL(a.href);
+
+            console.log(`File successfully saved as: ${fileName}`);
+        } catch (error) {
+            console.error(`Failed to save file: ${error.message}`);
+        }
+    }
+
+    // Delay Helper
+    function delay(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    // Update Queue Status
+    function updateQueueStatus(message) {
+        const statusElement = document.getElementById("queueStatus");
+        statusElement.innerText = message;
+    }
+
+    // Attach Event Listeners
+    document.getElementById("addToQueue").addEventListener("click", addToQueue);
+    document.getElementById("directoryPicker").addEventListener("click", selectSaveDirectory);
+ 
+	const queueForm = document.getElementById('queueForm');
+
+	queueForm.onsubmit = (event) => {
+		event.preventDefault(); // Prevent the page reload
+    }
+
+
+
+	onStart();
+
+    var coll = document.getElementsByClassName("cam-adv-setting-collapsible");
+    var i;
+
+    for (i = 0; i < coll.length; i++) {
+        coll[i].addEventListener("click", function() {
+            this.classList.toggle("active");
+            var content = this.nextElementSibling;
+            if (content.style.display === "block") {
+            content.style.display = "none";
+            } else {
+            content.style.display = "block";
+            }
+        });
+    }
+
+	
+})
+
+    </script>
+</body>
+</html>
