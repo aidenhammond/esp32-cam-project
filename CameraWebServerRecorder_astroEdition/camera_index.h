@@ -335,6 +335,31 @@ const char index_ov2640_html[] PROGMEM = R"===(
             overflow-x: auto;
             white-space: nowrap;
         }
+
+        .cam-adv-setting-collapsible {
+            background-color: var(--bg-dark);
+            color: #e0e0e0;
+            cursor: pointer;
+            padding-left: 3px;
+            width: 100%;
+            border: none;
+            text-align: left;
+            outline: none;
+            font-size: 14px;
+        }
+
+        /* Add a background color to the button if it is clicked on (add the .active class with JS), and when you move the mouse over it (hover) */
+        /*.active, */
+        .cam-adv-setting-collapsible:hover {
+            background-color: #ccc;
+        }
+
+        /* Style the collapsible content. Note: hidden by default */
+        .cam-adv-setting-content {
+            display: none;
+            overflow: hidden;
+            background-color: #2a2a2a;
+        }
     </style>
 </head>
 <body>
@@ -399,7 +424,7 @@ const char index_ov2640_html[] PROGMEM = R"===(
             <form id="settingsForm">
                 <div class="form-group">
                     <label for="exposure">Exposure (ms)</label>
-                    <input type="number" id="exposure" min="0" step="10" value="40">
+                    <input type="number" id="exposure" min="0" max="1200" step="1" value="40">
                 </div>
                 <div class="form-group">
                     <label for="quality">Quality</label>
@@ -410,11 +435,16 @@ const char index_ov2640_html[] PROGMEM = R"===(
                     <input type="number" id="gain" min="1" max="31" value="1">
                 </div>
                 <div class="form-group">
-                    <label for="wb">White Balance</label>
-                    <select id="wb">
-                        <option value="Setting 1">Setting 1</option>
-                        <option value="Setting 2">Setting 2</option>
-                    </select>
+                    <label for="wb">Clock Rate (MHz)</label>
+                    <input type="number" id="xclk" min="1" max="20" value="1">
+                </div>
+                <div class="form-group">
+                    <label for="wb">VSYNC Lines</label>
+                    <input type="number" id="addvsync" min="0" max="255" value="0">
+                </div>
+                <button type="button" class="cam-adv-setting-collapsible">Advanced Settings</button>
+                <div class="cam-adv-setting-content">
+                    <p>Lorem ipsum...</p>
                 </div>
                 <button type="submit" id="apply-settings-button">Apply Settings</button>
             </form>
@@ -594,6 +624,39 @@ document.addEventListener('DOMContentLoaded', function (event) {
 		      })
 	}
 
+    /******************************
+	 *                            *
+	 *     Update Clock Rate      *
+	 *                            *
+	 ******************************/
+	function updateClockRate() {
+		let value = parseInt(document.getElementById('xclk').value);
+
+		const query = `${baseHost}/xclk?xclk=${value}`
+
+		fetch(query)
+		      .then(response => {
+			console.log(`request to ${query} finished, status: ${response.status}`)
+		      })
+	}
+
+     /******************************
+	 *                            *
+	 *     Update Clock Rate      *
+	 *                            *
+	 ******************************/
+	function updateVSyncLines() {
+		let value = parseInt(document.getElementById('addvsync').value);
+
+		const query = `${baseHost}/addvsync?addvsync=${value}`
+
+		fetch(query)
+		      .then(response => {
+			console.log(`request to ${query} finished, status: ${response.status}`)
+		      })
+	}   
+
+
     function onBiasMode() {
 
     }
@@ -701,6 +764,8 @@ document.addEventListener('DOMContentLoaded', function (event) {
 		updateExposure();
 		updateQuality();
 		updateGain();
+        updateClockRate();
+        updateVSyncLines();
 	}
 
 	const settingsForm = document.getElementById('settingsForm');
@@ -813,9 +878,9 @@ async function captureAndSaveImage(task, frameNumber) {
 
         const blob = await response.blob();
         const timestamp = new Date().toISOString().replace(/:/g, "-");
-        const fileName = `${task.frameType}_${timestamp}_frame${frameNumber}.jpg`;
+        const fileName = `${task.saveTo}${task.frameType}_${timestamp}_frame${frameNumber}.bmp`;
 
-        await saveFile(blob, task, fileName);
+        await saveFile(blob, fileName);
 
         console.log(`Captured frame saved as: ${fileName}`);
         // Handle saving to SD card or local directory
@@ -824,7 +889,7 @@ async function captureAndSaveImage(task, frameNumber) {
     }
 }
 
-async function saveFile(rgb565Data, task, fileName) {
+/*async function saveFile(rgb565Data, task, fileName) {
     try {
         // Use showSaveFilePicker with a predefined file name
         const fileHandle = await window.showSaveFilePicker({
@@ -850,22 +915,45 @@ async function saveFile(rgb565Data, task, fileName) {
     } catch (error) {
         console.error(`Failed to save file: ${error.message}`);
     }
-}
+}*/
+    function saveFile(rgb565Data, fileName) {
+        try {
+            // Create a Blob from the RGB565 data
+            const blob = new Blob([rgb565Data], { type: 'application/octet-stream' });
 
-// Delay Helper
-function delay(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
-}
+            // Create a temporary anchor element
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = fileName;
 
-// Update Queue Status
-function updateQueueStatus(message) {
-    const statusElement = document.getElementById("queueStatus");
-    statusElement.innerText = message;
-}
+            // Programmatically trigger a click on the anchor element
+            document.body.appendChild(a);
+            a.click();
 
-// Attach Event Listeners
-document.getElementById("addToQueue").addEventListener("click", addToQueue);
-document.getElementById("directoryPicker").addEventListener("click", selectSaveDirectory);
+            // Clean up the DOM and revoke the Blob URL
+            document.body.removeChild(a);
+            URL.revokeObjectURL(a.href);
+
+            console.log(`File successfully saved as: ${fileName}`);
+        } catch (error) {
+            console.error(`Failed to save file: ${error.message}`);
+        }
+    }
+
+    // Delay Helper
+    function delay(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    // Update Queue Status
+    function updateQueueStatus(message) {
+        const statusElement = document.getElementById("queueStatus");
+        statusElement.innerText = message;
+    }
+
+    // Attach Event Listeners
+    document.getElementById("addToQueue").addEventListener("click", addToQueue);
+    document.getElementById("directoryPicker").addEventListener("click", selectSaveDirectory);
  
 	const queueForm = document.getElementById('queueForm');
 
@@ -877,12 +965,28 @@ document.getElementById("directoryPicker").addEventListener("click", selectSaveD
 
 	onStart();
 
+    var coll = document.getElementsByClassName("cam-adv-setting-collapsible");
+    var i;
+
+    for (i = 0; i < coll.length; i++) {
+        coll[i].addEventListener("click", function() {
+            this.classList.toggle("active");
+            var content = this.nextElementSibling;
+            if (content.style.display === "block") {
+            content.style.display = "none";
+            } else {
+            content.style.display = "block";
+            }
+        });
+    }
+
 	
 })
 
     </script>
 </body>
 </html>
+
 
 
 )===";

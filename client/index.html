@@ -388,7 +388,7 @@
             <form id="settingsForm">
                 <div class="form-group">
                     <label for="exposure">Exposure (ms)</label>
-                    <input type="number" id="exposure" min="0" step="10" value="40">
+                    <input type="number" id="exposure" min="0" max="1200" step="1" value="40">
                 </div>
                 <div class="form-group">
                     <label for="quality">Quality</label>
@@ -399,11 +399,12 @@
                     <input type="number" id="gain" min="1" max="31" value="1">
                 </div>
                 <div class="form-group">
-                    <label for="wb">White Balance</label>
-                    <select id="wb">
-                        <option value="Setting 1">Setting 1</option>
-                        <option value="Setting 2">Setting 2</option>
-                    </select>
+                    <label for="wb">Clock Rate (MHz)</label>
+                    <input type="number" id="xclk" min="1" max="20" value="1">
+                </div>
+                <div class="form-group">
+                    <label for="wb">VSYNC Lines</label>
+                    <input type="number" id="addvsync" min="0" max="255" value="0">
                 </div>
                 <button type="button" class="cam-adv-setting-collapsible">Advanced Settings</button>
                 <div class="cam-adv-setting-content">
@@ -587,6 +588,39 @@ document.addEventListener('DOMContentLoaded', function (event) {
 		      })
 	}
 
+    /******************************
+	 *                            *
+	 *     Update Clock Rate      *
+	 *                            *
+	 ******************************/
+	function updateClockRate() {
+		let value = parseInt(document.getElementById('xclk').value);
+
+		const query = `${baseHost}/xclk?xclk=${value}`
+
+		fetch(query)
+		      .then(response => {
+			console.log(`request to ${query} finished, status: ${response.status}`)
+		      })
+	}
+
+     /******************************
+	 *                            *
+	 *     Update Clock Rate      *
+	 *                            *
+	 ******************************/
+	function updateVSyncLines() {
+		let value = parseInt(document.getElementById('addvsync').value);
+
+		const query = `${baseHost}/addvsync?addvsync=${value}`
+
+		fetch(query)
+		      .then(response => {
+			console.log(`request to ${query} finished, status: ${response.status}`)
+		      })
+	}   
+
+
     function onBiasMode() {
 
     }
@@ -694,6 +728,8 @@ document.addEventListener('DOMContentLoaded', function (event) {
 		updateExposure();
 		updateQuality();
 		updateGain();
+        updateClockRate();
+        updateVSyncLines();
 	}
 
 	const settingsForm = document.getElementById('settingsForm');

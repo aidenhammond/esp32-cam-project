@@ -1,0 +1,5 @@
+Maybe don't trust the first and third image; I believe that the camera moved. Also later images mightve been affected by a nearby light. Will need to redo.
+
+Also need:
+1. To add more information about the images to the file names
+2. To take biases alongside darks
