@@ -606,7 +606,7 @@ document.addEventListener('DOMContentLoaded', function (event) {
 
      /******************************
 	 *                            *
-	 *     Update Clock Rate      *
+	 *     Update VSync Lines     *
 	 *                            *
 	 ******************************/
 	function updateVSyncLines() {
@@ -629,6 +629,13 @@ document.addEventListener('DOMContentLoaded', function (event) {
 	// starting with default settings, described in comments
 	function onStart() {
 		updateSettings();
+
+        
+		// Set framesize / resolution to HD
+		fetch(`${baseHost}/control?var=framesize&val=11`)
+		      .then(response => {
+			console.log(`inital request to framesize (HD) finished, status: ${response.status}`)
+		      })
 
 		// Turning auto white balance off
 		fetch(`${baseHost}/control?var=awb&val=0`)
@@ -839,10 +846,15 @@ async function captureAndSaveImage(task, frameNumber) {
         const response = await fetch(captureUrl);
 
         if (!response.ok) throw new Error("Capture failed.");
+		let exposure = parseInt(document.getElementById('exposure').value);
+		let quality = parseInt(document.getElementById('quality').value);
+		let gain = parseInt(document.getElementById('gain').value);
+		let clockrate = parseInt(document.getElementById('xclk').value);
+		let vsync_lines = parseInt(document.getElementById('addvsync').value);
 
         const blob = await response.blob();
         const timestamp = new Date().toISOString().replace(/:/g, "-");
-        const fileName = `${task.saveTo}${task.frameType}_${timestamp}_frame${frameNumber}.bmp`;
+        const fileName = `${task.saveTo}_${task.frameType}_exp_${exposure}_quality_${quality}_gain_${gain}_clockrate_${clockrate}_vsync_lines_${vsync_lines}_${timestamp}_frame${frameNumber}.bmp`;
 
         await saveFile(blob, fileName);
 

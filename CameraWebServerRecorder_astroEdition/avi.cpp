@@ -24,7 +24,7 @@ uint8_t buf[BUFFSIZE];
 #define AVIOFFSET 240 // AVI main header length
 
 int framesize = FRAMESIZE_HD;
-int quality = 12;
+int quality = 1;
 int avi_length = 900;
 int frame_interval = 0;
 int speed_up_factor = 1;
